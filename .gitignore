@@ -1,1 +1,5 @@
 .venv
+
+snapshot/lstm_model_complete.pth
+
+snapshot/essay_model2_full.pth
