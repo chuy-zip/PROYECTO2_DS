@@ -1,4 +1,5 @@
-# modulo para poder cargar lsa metricas de los 3 distintos modelos
+# modulo para poder cargar lsa metricas de los 3 distintos modelos o bien cargarlos todos de una
+
 import json
 from pathlib import Path
 from typing import Dict, Any
