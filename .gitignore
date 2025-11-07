@@ -3,3 +3,5 @@
 snapshots/lstm/lstm_model_complete.pth
 
 snapshots/transformers/essay_model2_full.pt
+
+__pycache__/
