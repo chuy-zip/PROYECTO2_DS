@@ -19,9 +19,6 @@ def main():
     st.title("Speech Effectiveness Dashboard")
     st.markdown("---")
 
-    st.success("Pequeño disclaimer, esta pagina principal creo que va a ser importante porque " \
-                "sino recuerdo mal en el doc aparte de las visualizaciones creo recordar que tambien pide algo de documentacion o algo parecido dentro de la app")
-
     # Sidebar para navegación
     st.sidebar.title("Navegación")
     st.sidebar.markdown("Selecciona una página:")
@@ -58,6 +55,10 @@ def main():
 
 def render_home_page():
     """Renderiza la página de inicio."""
+
+    st.success("Pequeño disclaimer, esta pagina principal creo que va a ser importante porque " \
+                "sino recuerdo mal en el doc aparte de las visualizaciones creo recordar que tambien pide algo de documentacion o algo parecido dentro de la app")
+
     st.header("Bienvenido")
 
     st.markdown("""
