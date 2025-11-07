@@ -1,5 +1,5 @@
 .venv
 
-snapshot/lstm_model_complete.pth
+snapshots/lstm/lstm_model_complete.pth
 
-snapshot/essay_model2_full.pth
+snapshots/transformers/essay_model2_full.pt
