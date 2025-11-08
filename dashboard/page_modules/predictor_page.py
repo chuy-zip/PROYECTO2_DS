@@ -2,6 +2,12 @@
 
 import streamlit as st
 from io import StringIO
+import sys
+from pathlib import Path
+
+# Agregar el directorio padre al path para importar model_loader
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from model_loader import predict_with_lstm1
 
 def render():
 
@@ -98,17 +104,22 @@ def render():
             # Crear tabs dinamicas basadas en los modelos seleccionados
             tabs = st.tabs(model_selection)
 
+            # Guardar resultados de todos los modelos para comparacion
+            all_predictions = {}
+
             # Iterar sobre cada tab y modelo seleccionado
             for tab, model_name in zip(tabs, model_selection):
                 with tab:
                     # Aqui va el contenido de cada modelo
-                    render_model_prediction(model_name, input)
+                    result = render_model_prediction(model_name, input)
+                    if result is not None:
+                        all_predictions[model_name] = result
 
             # Seccion de comparacion de modelos
-            if len(model_selection) > 1:
+            if len(model_selection) > 1 and len(all_predictions) > 1:
                 st.markdown("---")
                 st.subheader("4. Comparacion entre Modelos")
-                render_model_comparison(model_selection)
+                render_model_comparison(model_selection, all_predictions)
 
 
 def render_model_prediction(model_name: str, input_text: str):
@@ -121,29 +132,63 @@ def render_model_prediction(model_name: str, input_text: str):
     """
     col1, col2 = st.columns([1, 1], gap="large")
 
-    with col1:
-        st.markdown("####Resultado de Clasificacion")
+    # Hacer prediccion segun el modelo seleccionado
+    prediction_result = None
 
-        # TODO: Aqui ira la logica de prediccion real
-        # Por ahora, placeholder
+    try:
         with st.spinner(f"Procesando con {model_name}..."):
-            pass
+            if model_name == "LSTM 1":
+                prediction_result = predict_with_lstm1(input_text)
+            elif model_name == "LSTM Bidireccional":
+                # TODO: Implementar cuando este disponible
+                st.warning("Modelo LSTM Bidireccional aun no implementado")
+                return
+            elif model_name == "Transformer":
+                # TODO: Implementar cuando este disponible
+                st.warning("Modelo Transformer aun no implementado")
+                return
+    except Exception as e:
+        st.error(f"Error al realizar la prediccion: {str(e)}")
+        return
 
-        # Placeholder para grafico de probabilidades
+    if prediction_result is None:
+        return
+
+    # Extraer resultados
+    predicted_class = prediction_result['predicted_class']
+    probabilities = prediction_result['probabilities']
+    confidence = prediction_result['confidence']
+    all_classes = prediction_result['all_classes']
+
+    with col1:
+        st.markdown("#### Resultado de Clasificacion")
+
+        # Grafico de probabilidades
         st.markdown("**Distribuccion de probabilidades:**")
-        st.progress(0.65, text="Adequate: 65%")
-        st.progress(0.25, text="Effective: 25%")
-        st.progress(0.10, text="Ineffective: 10%")
+
+        # Ordenar clases para mostrarlas consistentemente
+        for class_name in all_classes:
+            prob = probabilities[class_name]
+            st.progress(prob, text=f"{class_name}: {prob:.1%}")
 
         st.markdown("")
-        # Placeholder para clasificacion final
-        st.success("**Clasificacion:** Adequate")
-        st.metric(label="Confianza", value="65%", delta="Alta")
+
+        # Clasificacion final con color segun la clase
+        if predicted_class == "Effective":
+            st.success(f"**Clasificacion:** {predicted_class}")
+        elif predicted_class == "Adequate":
+            st.info(f"**Clasificacion:** {predicted_class}")
+        else:  # Ineffective
+            st.warning(f"**Clasificacion:** {predicted_class}")
+
+        # Metrica de confianza
+        confidence_level = "Alta" if confidence > 0.7 else "Media" if confidence > 0.5 else "Baja"
+        st.metric(label="Confianza", value=f"{confidence:.1%}", delta=confidence_level)
 
     with col2:
-        st.markdown("####Informacion de la Prediccion")
+        st.markdown("#### Informacion de la Prediccion")
 
-        # TODO: Aqui ira el resumen generado
+        # Informacion del texto y modelo
         st.markdown(f"""
         **Modelo:** `{model_name}`
 
@@ -152,36 +197,69 @@ def render_model_prediction(model_name: str, input_text: str):
         - Caracteres: {len(input_text)}
 
         **Metricas de confianza:**
-        - Nivel de certeza: Alta
-        - Probabilidad maxima: 65%
+        - Nivel de certeza: {confidence_level}
+        - Probabilidad maxima: {confidence:.1%}
+
+        **Segunda clase mas probable:**
         """)
 
-        # with st.expander("ℹInterpretacion del resultado"):
-        #     st.write("El modelo ha clasificado este discurso como **Adequate** con un nivel de confianza del 65%. "
-        #             "Esto indica que el discurso cumple con los requisitos basicos de efectividad.")
-        #     st.caption("Placeholder para interpretacion detallada...")
+        # Encontrar segunda clase mas probable
+        sorted_probs = sorted(probabilities.items(), key=lambda x: x[1], reverse=True)
+        if len(sorted_probs) > 1:
+            second_class, second_prob = sorted_probs[1]
+            st.write(f"- {second_class}: {second_prob:.1%}")
+
+        # Detalles de todas las probabilidades
+        with st.expander("Ver todas las probabilidades"):
+            for class_name in all_classes:
+                prob = probabilities[class_name]
+                st.write(f"**{class_name}:** {prob:.2%}")
+
+    return prediction_result
 
 
-def render_model_comparison(selected_models: list):
+def render_model_comparison(selected_models: list, predictions: dict):
     """
     Renderiza una tabla comparativa de las predicciones de los modelos.
 
     Args:
         selected_models: Lista de nombres de modelos seleccionados
+        predictions: Diccionario con los resultados de prediccion de cada modelo
     """
     st.markdown("Comparativa de predicciones entre los modelos seleccionados:")
 
     st.markdown("")
 
-    # TODO: Aqui ira la tabla real con las predicciones
-    # Por ahora, placeholder con estructura
+    # Construir datos de comparacion con resultados reales
+    model_names = []
+    classifications = []
+    confidences = []
+    second_classes = []
+    second_probs = []
+
+    for model_name in selected_models:
+        if model_name in predictions:
+            result = predictions[model_name]
+            model_names.append(model_name)
+            classifications.append(result['predicted_class'])
+            confidences.append(f"{result['confidence']:.1%}")
+
+            # Encontrar segunda clase mas probable
+            sorted_probs = sorted(result['probabilities'].items(), key=lambda x: x[1], reverse=True)
+            if len(sorted_probs) > 1:
+                second_class, second_prob = sorted_probs[1]
+                second_classes.append(second_class)
+                second_probs.append(f"{second_prob:.1%}")
+            else:
+                second_classes.append("-")
+                second_probs.append("-")
 
     comparison_data = {
-        "Modelo": selected_models,
-        "Clasificacion": ["Adequate"] * len(selected_models),
-        "Confianza": ["65%", "58%", "72%"][:len(selected_models)],
-        "Segunda Clase": ["Effective", "Ineffective", "Effective"][:len(selected_models)],
-        "Prob. Segunda": ["25%", "30%", "20%"][:len(selected_models)]
+        "Modelo": model_names,
+        "Clasificacion": classifications,
+        "Confianza": confidences,
+        "Segunda Clase": second_classes,
+        "Prob. Segunda": second_probs
     }
 
     st.dataframe(
@@ -192,41 +270,69 @@ def render_model_comparison(selected_models: list):
 
     st.markdown("")
 
+    # Calcular metricas comparativas
+    # Consenso: porcentaje de modelos que coinciden en la clasificacion
+    from collections import Counter
+    class_counts = Counter(classifications)
+    most_common_class, most_common_count = class_counts.most_common(1)[0]
+    consensus = (most_common_count / len(classifications)) * 100
+
+    # Confianza promedio
+    avg_confidence = sum([predictions[m]['confidence'] for m in model_names]) / len(model_names)
+
     # Metricas comparativas
     col1, col2, col3 = st.columns(3)
 
     with col1:
         st.metric(
             label="Consenso",
-            value="100%",
+            value=f"{consensus:.0f}%",
             help="Porcentaje de modelos que coinciden en la clasificacion"
         )
 
     with col2:
         st.metric(
             label="Confianza promedio",
-            value="65%",
+            value=f"{avg_confidence:.1%}",
             help="Promedio de confianza entre todos los modelos"
         )
 
     with col3:
         st.metric(
             label="Clasificacion final",
-            value="Adequate",
+            value=most_common_class,
             help="Clasificacion mas frecuente entre los modelos"
         )
 
     st.markdown("")
 
-    # with st.expander("Analisis comparativo detallado"):
-    #     st.markdown("""
-    #     **Observaciones:**
-    #     - Todos los modelos coinciden en clasificar el discurso como **Adequate**
-    #     - El modelo Transformer muestra la mayor confianza (72%)
-    #     - La segunda clase mas probable varia entre modelos
+    # Analisis adicional
+    with st.expander("Ver analisis comparativo detallado"):
+        st.markdown("**Observaciones:**")
 
-    #     **Recomendacion:**
-    #     La alta coincidencia entre modelos sugiere una clasificacion confiable.
-    #     """)
-    #     st.caption("Placeholder para analisis comparativo detallado...")
+        # Verificar consenso
+        if consensus == 100:
+            st.write(f"- Todos los modelos coinciden en clasificar como **{most_common_class}**")
+        else:
+            st.write(f"- Los modelos no tienen consenso completo ({consensus:.0f}%)")
+            st.write(f"- Clasificacion mas frecuente: **{most_common_class}**")
 
+        # Modelo con mayor confianza
+        max_conf_model = max(model_names, key=lambda m: predictions[m]['confidence'])
+        max_conf = predictions[max_conf_model]['confidence']
+        st.write(f"- El modelo **{max_conf_model}** muestra la mayor confianza ({max_conf:.1%})")
+
+        # Variabilidad en segunda clase
+        unique_second_classes = set([s for s in second_classes if s != "-"])
+        if len(unique_second_classes) > 1:
+            st.write(f"- La segunda clase mas probable varia entre modelos")
+        elif len(unique_second_classes) == 1:
+            st.write(f"- Todos coinciden en la segunda opcion: **{list(unique_second_classes)[0]}**")
+
+        st.markdown("**Recomendacion:**")
+        if consensus >= 80 and avg_confidence >= 0.6:
+            st.success("La alta coincidencia y confianza entre modelos sugiere una clasificacion muy confiable.")
+        elif consensus >= 60:
+            st.info("Hay consenso moderado entre los modelos. Considere el contexto adicional.")
+        else:
+            st.warning("Los modelos no tienen consenso. Se recomienda precaucion con esta clasificacion.")
