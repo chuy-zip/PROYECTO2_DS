@@ -67,14 +67,14 @@ def render_home_page():
     Este dashboard permite:
 
     - **Explorar Datos**: Visualizar y analizar el dataset de discursos
-    - **Comparar Modelos**: Analizar el rendimiento de diferentes modelos (LSTM_1, LSTM_2, Transformer_1)
+    - **Comparar Modelos**: Analizar el rendimiento de diferentes modelos (LSTM_1, LSTM_2, LSTM_3)
     - **Hacer Predicciones**: Utilizar los modelos entrenados para clasificar nuevos discursos
 
     ### Modelos Disponibles
 
-    1. **LSTM_1**: Modelo LSTM 
-    2. **LSTM_2**: Modelo LSTM bidireccional
-    3. **Transformer_1**: Modelo basado en arquitectura Transformer
+    1. **LSTM 1**: LSTM Bidireccional con Atención
+    2. **LSTM Bidireccional**: LSTM con Attention Pooling
+    3. **LSTM Focal**: LSTM entrenado con Focal Loss para clases desbalanceadas
 
     ### Clases de Clasificación
 

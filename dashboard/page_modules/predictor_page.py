@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Agregar el directorio padre al path para importar model_loader
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from model_loader import predict_with_lstm1, predict_with_lstm2
+from model_loader import predict_with_lstm1, predict_with_lstm2, predict_with_lstm3
 
 def render():
 
@@ -82,7 +82,7 @@ def render():
 
         st.markdown("Elija uno o mas modelos para realizar la prediccion:")
 
-        model_options = ["LSTM 1", "LSTM Bidireccional", "Transformer"]
+        model_options = ["LSTM 1", "LSTM Bidireccional", "LSTM Focal"]
 
         model_selection = st.pills(
             "Modelos disponibles:",
@@ -141,10 +141,8 @@ def render_model_prediction(model_name: str, input_text: str):
                 prediction_result = predict_with_lstm1(input_text)
             elif model_name == "LSTM Bidireccional":
                 prediction_result = predict_with_lstm2(input_text)
-            elif model_name == "Transformer":
-                # TODO: Implementar cuando este disponible
-                st.warning("Modelo Transformer aun no implementado")
-                return
+            elif model_name == "LSTM Focal":
+                prediction_result = predict_with_lstm3(input_text)
     except Exception as e:
         st.error(f"Error al realizar la prediccion: {str(e)}")
         return
