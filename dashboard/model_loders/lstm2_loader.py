@@ -1,6 +1,6 @@
-"""
-Modulo para cargar y ejecutar predicciones con el modelo LSTM 2 (Bidireccional con Atencion).
-"""
+
+#Modulo para cargar y ejecutar predicciones con el modelo LSTM 2 (Bidireccional con Atencion).
+
 
 import torch
 import torch.nn as nn
@@ -294,21 +294,3 @@ def get_lstm2_info() -> Dict[str, any]:
         'bidirectional': True,
         'attention': True
     }
-
-
-if __name__ == "__main__":
-    # Ejemplo de uso
-    print("Cargando modelo LSTM 2...")
-    info = get_lstm2_info()
-    print(f"Info del modelo: {info}")
-
-    print("\nHaciendo prediccion de prueba...")
-    test_text = "This is a test speech about electoral college and student voting rights."
-    result = predict_with_lstm2(test_text)
-
-    print(f"\nTexto: {test_text}")
-    print(f"Clase predicha: {result['predicted_class']}")
-    print(f"Confianza: {result['confidence']:.2%}")
-    print(f"\nProbabilidades:")
-    for class_name, prob in result['probabilities'].items():
-        print(f"  {class_name}: {prob:.2%}")

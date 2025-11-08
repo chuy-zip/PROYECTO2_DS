@@ -1,8 +1,7 @@
-"""
-Modulo para cargar y ejecutar predicciones con el modelo LSTM 3 (Balanced Focal Loss).
-Este modelo usa la misma arquitectura que LSTM 2 pero fue entrenado con Focal Loss
-para manejar mejor el desbalance de clases.
-"""
+#Modulo para cargar y ejecutar predicciones con el modelo LSTM 3 (Balanced Focal Loss).
+#Este modelo usa la misma arquitectura que LSTM 2 pero fue entrenado con Focal Loss
+#para manejar mejor el desbalance de clases.
+
 
 import torch
 import torch.nn as nn
@@ -11,9 +10,7 @@ from typing import Dict, List, Tuple
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
-# =====================================================
 # ARQUITECTURA DEL MODELO LSTM 3
-# =====================================================
 
 class AttentionPooling(nn.Module):
     """Mecanismo de atencion para pooling sobre salidas LSTM."""
@@ -80,9 +77,7 @@ class LSTMWithAttention(nn.Module):
         return logits, attn_weights
 
 
-# =====================================================
 # FUNCIONES DE PREPROCESAMIENTO
-# =====================================================
 
 def tokenizer(text: str) -> List[str]:
     """
@@ -145,9 +140,7 @@ def preprocess_text(text: str, vocab: Dict[str, int], max_length: int = 200) -> 
     return indices, lengths
 
 
-# =====================================================
 # CARGA Y PREDICCION DEL MODELO LSTM 3
-# =====================================================
 
 # Cache global para el modelo LSTM 3
 _lstm3_model = None
@@ -303,21 +296,3 @@ def get_lstm3_info() -> Dict[str, any]:
         'attention': True,
         'loss_function': 'Focal Loss (para clases desbalanceadas)'
     }
-
-
-if __name__ == "__main__":
-    # Ejemplo de uso
-    print("Cargando modelo LSTM 3...")
-    info = get_lstm3_info()
-    print(f"Info del modelo: {info}")
-
-    print("\nHaciendo prediccion de prueba...")
-    test_text = "This is a test speech about electoral college and student voting rights."
-    result = predict_with_lstm3(test_text)
-
-    print(f"\nTexto: {test_text}")
-    print(f"Clase predicha: {result['predicted_class']}")
-    print(f"Confianza: {result['confidence']:.2%}")
-    print(f"\nProbabilidades:")
-    for class_name, prob in result['probabilities'].items():
-        print(f"  {class_name}: {prob:.2%}")
