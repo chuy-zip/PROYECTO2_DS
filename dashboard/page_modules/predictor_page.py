@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Agregar el directorio padre al path para importar model_loader
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from model_loader import predict_with_lstm1
+from model_loader import predict_with_lstm1, predict_with_lstm2
 
 def render():
 
@@ -140,9 +140,7 @@ def render_model_prediction(model_name: str, input_text: str):
             if model_name == "LSTM 1":
                 prediction_result = predict_with_lstm1(input_text)
             elif model_name == "LSTM Bidireccional":
-                # TODO: Implementar cuando este disponible
-                st.warning("Modelo LSTM Bidireccional aun no implementado")
-                return
+                prediction_result = predict_with_lstm2(input_text)
             elif model_name == "Transformer":
                 # TODO: Implementar cuando este disponible
                 st.warning("Modelo Transformer aun no implementado")
@@ -208,12 +206,6 @@ def render_model_prediction(model_name: str, input_text: str):
         if len(sorted_probs) > 1:
             second_class, second_prob = sorted_probs[1]
             st.write(f"- {second_class}: {second_prob:.1%}")
-
-        # Detalles de todas las probabilidades
-        with st.expander("Ver todas las probabilidades"):
-            for class_name in all_classes:
-                prob = probabilities[class_name]
-                st.write(f"**{class_name}:** {prob:.2%}")
 
     return prediction_result
 
