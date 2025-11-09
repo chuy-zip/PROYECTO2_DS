@@ -36,6 +36,17 @@ pip install streamlit
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 pip install transformers
+
+pip install matplotlib
+
+pip install scikit-learn
+
+pip install wordcloud
+
+pip install plotly
+
+
+
 ```
 
 ### Run the app 🚀
