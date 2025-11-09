@@ -1,5 +1,6 @@
 # pagina donde se haran predicciones en base a la eleccion delo modelo del usuario
 
+from unittest import result
 import streamlit as st
 from io import StringIO
 import sys
@@ -7,7 +8,8 @@ from pathlib import Path
 
 # Agregar el directorio padre al path para importar model_loader
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from model_loader import predict_with_lstm1, predict_with_lstm2, predict_with_lstm3
+
+from model_loader import predict_with_lstm1, predict_with_lstm2, predict_with_lstm3, predict_with_transformer
 
 def render():
 
@@ -82,7 +84,7 @@ def render():
 
         st.markdown("Elija uno o mas modelos para realizar la prediccion:")
 
-        model_options = ["LSTM 1", "LSTM Bidireccional", "LSTM Focal"]
+        model_options = ["LSTM 1", "LSTM Bidireccional", "LSTM Focal", "Transformers"]
 
         model_selection = st.pills(
             "Modelos disponibles:",
@@ -134,6 +136,7 @@ def render_model_prediction(model_name: str, input_text: str):
 
     # Hacer prediccion segun el modelo seleccionado
     prediction_result = None
+    prediction_result_transformer = None
 
     try:
         with st.spinner(f"Procesando con {model_name}..."):
@@ -143,8 +146,93 @@ def render_model_prediction(model_name: str, input_text: str):
                 prediction_result = predict_with_lstm2(input_text)
             elif model_name == "LSTM Focal":
                 prediction_result = predict_with_lstm3(input_text)
+            elif model_name == "Transformers":
+                prediction_result_transformer = predict_with_transformer(input_text)
     except Exception as e:
         st.error(f"Error al realizar la prediccion: {str(e)}")
+        return
+    
+    if prediction_result_transformer:
+        result = prediction_result_transformer["results"]
+
+        confidences = [r["confidence"] for r in result]
+        mean_confidence = sum(confidences) / len(confidences)
+        max_confidence = max(confidences)
+        min_confidence = min(confidences)
+
+        overall_level = (
+            "Alta" if mean_confidence > 0.7 else
+            "Media" if mean_confidence > 0.5 else
+            "Baja"
+        )
+
+        label_counts = {}
+        for r in result:
+            label = r["prediction"]
+            label_counts[label] = label_counts.get(label, 0) + 1
+
+        total_predictions = len(result)
+
+        with col1:
+            st.markdown("#### Resultado de Clasificacion")
+
+            # Grafico de probabilidades
+            st.markdown("**Distribuccion de probabilidades:**")
+
+            # Ordenar clases para mostrarlas consistentemente
+            for res in result:
+                discourse_id = res["discourse"]
+                st.markdown(f"**Parrafo {discourse_id}:**")
+                predicted_class = res["prediction"]
+                probabilities = res["probabilities"]
+                confidence = res["confidence"]
+                all_classes = list(probabilities.keys())
+
+                for class_name in all_classes:
+                    prob = probabilities[class_name]
+                    st.progress(prob, text=f"{class_name}: {prob:.1%}")
+
+                st.markdown("")
+
+                # Clasificacion final con color segun la clase
+                if predicted_class == "Effective":
+                    st.success(f"**Clasificacion:** {predicted_class}")
+                elif predicted_class == "Adequate":
+                    st.warning(f"**Clasificacion:** {predicted_class}")
+                else:  # Ineffective    
+                    st.error(f"**Clasificacion:** {predicted_class}")
+
+                # Metrica de confianza
+                confidence_level = "Alta" if confidence > 0.7 else "Media" if confidence > 0.5 else "Baja"
+                st.metric(label="Confianza", value=f"{confidence:.1%}", delta=confidence_level)
+
+                st.markdown("")
+        with col2:
+            st.markdown("#### Informacion de la Prediccion")
+
+            # Informacion del texto y modelo
+            st.markdown(f"""
+            **Modelo:** `{model_name}`
+
+            **Estadisticas del texto:**
+            - Palabras: {len(input_text.split())}
+            - Caracteres: {len(input_text)}
+            
+            """)
+
+            st.markdown("**Resumen de clasificaciones:**")
+
+            for label, count in label_counts.items():
+                porcentaje = (count / total_predictions) * 100
+                st.write(f"- {label}: {count} ({porcentaje:.1f}%)")
+
+            st.markdown(f"""
+            **Certeza global del modelo:**  
+            - Nivel general: **{overall_level}**  
+            - Promedio de confianza: **{mean_confidence:.1%}**  
+            - Máxima confianza entre párrafos: **{max_confidence:.1%}**  
+            - Mínima confianza entre párrafos: **{min_confidence:.1%}**
+            """)
         return
 
     if prediction_result is None:
@@ -173,9 +261,9 @@ def render_model_prediction(model_name: str, input_text: str):
         if predicted_class == "Effective":
             st.success(f"**Clasificacion:** {predicted_class}")
         elif predicted_class == "Adequate":
-            st.info(f"**Clasificacion:** {predicted_class}")
-        else:  # Ineffective
             st.warning(f"**Clasificacion:** {predicted_class}")
+        else:  # Ineffective
+            st.error(f"**Clasificacion:** {predicted_class}")
 
         # Metrica de confianza
         confidence_level = "Alta" if confidence > 0.7 else "Media" if confidence > 0.5 else "Baja"
