@@ -1,6 +1,7 @@
 
 import streamlit as st
 from page_modules import data_explore_page, model_comparison_page, predictor_page
+from model_loader import EssayGroupModel2 # No borrar es importante para el transformer
 
 
 # Configuración de la página
