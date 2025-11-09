@@ -1,4 +1,4 @@
-# pages/exploration.py
+# data_explore_page_fixed.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -12,15 +12,20 @@ import networkx as nx
 import nltk
 from itertools import combinations
 from io import StringIO, BytesIO
+import os
 
 # Configuración de página
 st.set_page_config(page_title="Exploración de Datos", layout="wide")
 
 # Descargas necesarias de NLTK (silenciosas)
+# Descargar variantes necesarias para POS tagging y tokenizers.
 nltk.download("punkt", quiet=True)
 nltk.download("stopwords", quiet=True)
+# algunos entornos requieren esta variante nombrada
 nltk.download("averaged_perceptron_tagger", quiet=True)
-nltk.download("universal_tagset", quiet=True)
+nltk.download("averaged_perceptron_tagger_eng", quiet=True)
+# universal tagset no es un paquete descargable; se usa como parámetro en pos_tag
+# nltk.download("universal_tagset", quiet=True)  # no necesario
 
 STOPWORDS = set(nltk.corpus.stopwords.words("spanish")) | set(nltk.corpus.stopwords.words("english"))
 
@@ -54,7 +59,14 @@ def pos_tag_texts(list_of_texts):
         if not tokens:
             tagged.append([])
             continue
-        tags = nltk.pos_tag(tokens, tagset="universal")
+        try:
+            tags = nltk.pos_tag(tokens, tagset="universal")
+        except LookupError:
+            # fallback: intentar sin tagset
+            try:
+                tags = nltk.pos_tag(tokens)
+            except Exception:
+                tags = []
         tagged.append(tags)
     return tagged
 
@@ -93,6 +105,24 @@ def build_cooccurrence_graph(counters, top_words=None, window_size=2, top_k_edge
         G.add_edge(a, b, weight=cnt)
     return G
 
+# helpers para n-gramas
+def build_ngrams(counters, n=2, top_k=30):
+    total = Counter()
+    for c in counters:
+        # expand each document into repeated tokens based on counts
+        tokens = []
+        for w, cnt in c.items():
+            tokens.extend([w] * cnt)
+        # create ngrams in the document (sequence-less approximation: use tokens order as-is)
+        if len(tokens) < n:
+            continue
+        for i in range(len(tokens) - n + 1):
+            ng = tuple(tokens[i:i+n])
+            total[ng] += 1
+    # return list of tuples with stringified ngrams and counts
+    most = total.most_common(top_k)
+    return [(" ".join(k), v) for k, v in most]
+
 # --------------------------------------------------
 # UI: carga de datos y configuración
 # --------------------------------------------------
@@ -109,18 +139,17 @@ def render():
 
     with st.expander("Cargar datos"):
         uploaded = st.file_uploader("Sube un CSV/Parquet (o deja vacío y selecciona ruta local)", type=["csv", "parquet", "parq"], accept_multiple_files=False)
-        # Ruta por defecto basada en el notebook de análisis exploratorio
-        # Ruta por defecto según ExploratoryAnalysis.ipynb
-        default_path = "PROYECTO2_DS/data/train_clean.csv"
+        # Ruta por defecto basada en el notebook de análisis exploratorio (subir un nivel desde dashboard/)
+        default_path = os.path.join("..", "data", "train_clean.csv")
         use_sample_path = st.text_input(
             "Ruta local (opcional)",
             value=default_path,
-            help="Ruta por defecto basada en ExploratoryAnalysis.ipynb"
+            help="Ruta por defecto basada en ExploratoryAnalysis.ipynb (relativa al folder 'dashboard/')"
         )
 
-
-        text_col_input = st.text_input("Nombre columna texto (si se detecta automáticamente puedes dejar vacío)", value="text")
-        label_col_input = st.text_input("Nombre columna etiqueta/clase (si se detecta automáticamente puedes dejar vacío)", value="label")
+        # dejamos los inputs vacíos por defecto para detectar automáticamente
+        text_col_input = st.text_input("Nombre columna texto (si se detecta automáticamente puedes dejar vacío)", value="")
+        label_col_input = st.text_input("Nombre columna etiqueta/clase (si se detecta automáticamente puedes dejar vacío)", value="")
 
     df = None
     if uploaded:
@@ -143,26 +172,45 @@ def render():
     else:
         st.info("Sube un archivo o escribe la ruta local para cargar los datos. Si ya cargaste el notebook con datos, puedes arrastrar el CSV aquí.")
 
+    # Si al leer aparece una columna de índice como 'Unnamed: 0', la removemos
+    if df is not None:
+        unnamed_cols = [c for c in df.columns if str(c).startswith("Unnamed")]
+        if unnamed_cols:
+            df = df.drop(columns=unnamed_cols)
+
     if df is not None:
         st.success(f"Datos cargados: {df.shape[0]} filas, {df.shape[1]} columnas")
-        # intentar detectar columnas
-        text_col = text_col_input or next((c for c in df.columns if c.lower() in ("text", "texto", "utterance", "message", "sentence")), None)
-        label_col = label_col_input or next((c for c in df.columns if c.lower() in ("label", "class", "clase", "target")), None)
+
+        # Detección automática de columnas de texto y etiqueta (incluye tus nombres reales)
+        text_col = text_col_input.strip() or next(
+            (c for c in df.columns if str(c).lower() in (
+                "text", "texto", "utterance", "message", "sentence", "text_clean", "textclean", "text_cleaned"
+            )), None)
+
+        label_col = label_col_input.strip() or next(
+            (c for c in df.columns if str(c).lower() in (
+                "label", "class", "clase", "target", "discourse_effectiveness", "discourse_type", "discourseeffectiveness"
+            )), None)
+
         if text_col is None or label_col is None:
             st.warning("No se detectó automáticamente la columna de texto o etiqueta. Ajusta los nombres arriba.")
             st.write("Columnas disponibles:", list(df.columns))
         else:
             st.write(f"Usando columna de texto: **{text_col}**, columna de clase: **{label_col}**")
+
             # Preprocesamiento y creación de features
             dfp = preprocess_dataframe(df, text_col)
             # cache POS tags por lista de textos reducida
             dfp["pos_tags"] = pos_tag_texts(dfp["__text_str"].tolist())
             # Contadores globales por fila ya en 'token_counts'
             unique_classes = sorted(dfp[label_col].astype(str).unique().tolist())
-            # filtros
+
+            # filtros en sidebar
             st.sidebar.header("Filtros")
             selected_classes = st.sidebar.multiselect("Filtrar por clase", options=unique_classes, default=unique_classes)
+
             df_filtered = dfp[dfp[label_col].astype(str).isin(selected_classes)].copy()
+
             # --------------------------------------------------
             # 1) Gráfica horizontal: distribución por clases (centrada bajo el título)
             # --------------------------------------------------
@@ -285,6 +333,35 @@ def render():
                     st.info("No hay vocabulario relevante después del filtro.")
 
             # --------------------------------------------------
+            # Bigramas y Trigramas (antes de la vista previa)
+            # --------------------------------------------------
+            st.markdown("### Bigramas (Top)")
+            bigram_top_n = st.slider("Top N bigramas", min_value=10, max_value=100, value=20, step=5, key="bigram_n")
+            if wc_col == "Todas":
+                counters_for_grams = df_filtered["token_counts"].tolist()
+            else:
+                counters_for_grams = df_filtered[df_filtered[label_col].astype(str) == wc_col]["token_counts"].tolist()
+            bigrams = build_ngrams(counters_for_grams, n=2, top_k=bigram_top_n)
+            if bigrams:
+                big_df = pd.DataFrame(bigrams, columns=["bigram", "count"])
+                fig = px.bar(big_df, x="count", y="bigram", orientation="h", text="count")
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No hay bigramas suficientes para mostrar.")
+
+            st.markdown("### Trigramas (Top)")
+            trigram_top_n = st.slider("Top N trigramas", min_value=10, max_value=100, value=20, step=5, key="trigram_n")
+            trigrams = build_ngrams(counters_for_grams, n=3, top_k=trigram_top_n)
+            if trigrams:
+                tri_df = pd.DataFrame(trigrams, columns=["trigram", "count"])
+                fig = px.bar(tri_df, x="count", y="trigram", orientation="h", text="count")
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No hay trigramas suficientes para mostrar.")
+
+            # --------------------------------------------------
             # 7) Mapa de concurrencia de palabras (co-occurrence) centrado en la fila siguiente
             # --------------------------------------------------
             st.markdown("### Mapa de concurrencia de palabras (co-occurrence)")
@@ -295,7 +372,6 @@ def render():
                 counters_for_co = df_filtered[df_filtered[label_col].astype(str) == co_class_filter]["token_counts"].tolist()
             # calcular top words y grafo
             most_common_n = st.slider("Top palabras a considerar (para el grafo)", min_value=20, max_value=200, value=80, step=10)
-            top_words = [w for w, _ in Counter().most_common(0)]  # placeholder
             total_counter = Counter()
             for c in counters_for_co:
                 total_counter.update(c)
@@ -324,3 +400,7 @@ def render():
 
     else:
         st.info("Aún no hay datos cargados. Sube un CSV/Parquet con tus discursos y clases para comenzar.")
+
+if __name__ == "__main__":
+    # Permite ejecutar el módulo directamente para pruebas rápidas
+    render()
