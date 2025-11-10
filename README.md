@@ -107,5 +107,5 @@ cd dashboard
 Correr la aplicación con streamlit
 
 ```
-streamlit run dashboard/dashboard.py
+streamlit run dashboard.py
 ```
