@@ -62,31 +62,73 @@ def render_home_page():
 
     st.header("Bienvenido")
 
+    import streamlit as st
+
+def render_home_page():
+    """Renderiza la página de inicio."""
+    st.header("Bienvenido")
+
+    st.markdown("""
+    ### Objetivo General
+    Analizar exploratoriamente el dataset Feedback Prize – Effectiveness para identificar patrones y características en los argumentos que permitan comprender qué factores influyen en su clasificación como efectivos, adecuados o inefectivos.
+    
+    ### Objetivos
+    - Obtener un listado de características descriptivas (longitud, cantidad, palabras más frecuentes) de los ensayos hechos por niños de los Estados Unidos entre 6to y 12vo grado.
+    - Implementar varios modelos que predigan la efectividad de una sección de ensayo, con una precisión mayor a 75%.
+    - Determinar qué tipo de algoritmos da mejores resultados con la misma cantidad de tiempo de entrenamiento.
+    
+    ### Cómo funciona
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <table>
+    <tr>
+    <td>
+    <ul>
+    <li>Introducción</li>
+    <li>Postura</li>
+    <li>Argumento</li>
+    <li>Contraargumento</li>
+    <li>Refutación</li>
+    <li>Evidencia</li>
+    <li>Conclusión</li>
+    </ul>
+    </td>
+    <td style="text-align:center; font-size:24px;">➡️</td>
+    <td>
+    <ul>
+    <li>Inadecuado</li>
+    <li>Adecuado</li>
+    <li>Efectivo</li>
+    </ul>
+    </td>
+    </tr>
+    </table>
+    """, unsafe_allow_html=True)
+
     st.markdown("""
     ### Acerca de este Dashboard
 
     Este dashboard permite:
 
-    - **Explorar Datos**: Visualizar y analizar el dataset de discursos
-    - **Comparar Modelos**: Analizar el rendimiento de diferentes modelos (LSTM_1, LSTM_2, LSTM_3)
-    - **Hacer Predicciones**: Utilizar los modelos entrenados para clasificar nuevos discursos
+    - **Explorar Datos**: Visualizar y analizar el dataset de discursos.
+    - **Comparar Modelos**: Analizar el rendimiento de diferentes modelos (LSTM_1, LSTM_2, LSTM_3).
+    - **Hacer Predicciones**: Utilizar los modelos entrenados para clasificar nuevos discursos.
 
     ### Modelos Disponibles
-
-    1. **LSTM 1**: LSTM Bidireccional con Atención
-    2. **LSTM Bidireccional**: LSTM con Attention Pooling
-    3. **LSTM Focal**: LSTM entrenado con Focal Loss para clases desbalanceadas
+    1. **LSTM 1**: LSTM Bidireccional con Atención  
+    2. **LSTM Bidireccional**: LSTM con Attention Pooling  
+    3. **LSTM Focal**: LSTM entrenado con Focal Loss para clases desbalanceadas  
 
     ### Clases de Clasificación
-
-    - **Adequate**: Discurso adecuado
-    - **Effective**: Discurso efectivo
-    - **Ineffective**: Discurso inefectivo
+    - **Adequate**: Discurso adecuado  
+    - **Effective**: Discurso efectivo  
+    - **Ineffective**: Discurso inefectivo  
 
     ---
+    **Seleccione una página para ver los distintos dashboards.**
+    """, unsafe_allow_html=True)
 
-    **Seleccione una página para ver los distintos dashboards**
-    """)
 
 
 if __name__ == "__main__":
