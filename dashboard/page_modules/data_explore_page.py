@@ -115,18 +115,23 @@ def render():
 
         st.success(f"Datos cargados: {df.shape[0]} filas, {df.shape[1]} columnas")
 
+        # Forzamos la detección de columnas
         text_col = next(
             (c for c in df.columns if str(c).lower() in (
                 "text", "texto", "utterance", "message", "sentence", "text_clean", "textclean", "text_cleaned"
             )), None)
 
-        label_col = next(
-            (c for c in df.columns if str(c).lower() in (
-                "label", "class", "clase", "target", "discourse_effectiveness", "discourse_type", "discourseeffectiveness"
-            )), None)
+        # Forzar que la clase sea discourse_effectiveness
+        if "discourse_effectiveness" in df.columns:
+            label_col = "discourse_effectiveness"
+        else:
+            label_col = next(
+                (c for c in df.columns if str(c).lower() in (
+                    "label", "class", "clase", "target"
+                )), None)
 
         if text_col is None or label_col is None:
-            st.warning("No se detectó automáticamente la columna de texto o etiqueta.")
+            st.warning("No se detectó automáticamente la columna de texto o la columna 'discourse_effectiveness'.")
             st.write("Columnas disponibles:", list(df.columns))
             return
 
@@ -137,18 +142,19 @@ def render():
         unique_classes = sorted(dfp[label_col].astype(str).unique().tolist())
 
         st.sidebar.header("Filtros")
-        selected_classes = st.sidebar.multiselect("Filtrar por clase", options=unique_classes, default=unique_classes)
+        selected_classes = st.sidebar.multiselect("Filtrar por clase (discourse_effectiveness)", options=unique_classes, default=unique_classes)
         df_filtered = dfp[dfp[label_col].astype(str).isin(selected_classes)].copy()
 
         # Distribución por clases
-        st.markdown("### Distribución por clases")
+        st.markdown("### Distribución por clases (discourse_effectiveness)")
         class_counts = dfp[label_col].astype(str).value_counts().reindex(unique_classes).fillna(0)
         fig_bar = px.bar(
             x=class_counts.values,
             y=class_counts.index,
             orientation="h",
-            labels={"x": "Cantidad", "y": "Clase"},
-            text=class_counts.values
+            labels={"x": "Cantidad", "y": "Clase (discourse_effectiveness)"},
+            text=class_counts.values,
+            color_discrete_sequence=["#D4AA7D"]
         )
         fig_bar.update_layout(height=350, margin=dict(l=40, r=20, t=20, b=20))
         st.plotly_chart(fig_bar, use_container_width=True)
@@ -161,9 +167,9 @@ def render():
         with col_box:
             var_box = st.selectbox("Variable numérica para boxplot", options=numeric_options, index=0)
             plt.figure(figsize=(6, 4))
-            sns.boxplot(x=label_col, y=var_box, data=df_filtered, order=unique_classes)
+            sns.boxplot(x=label_col, y=var_box, data=df_filtered, order=unique_classes, palette=["#D4AA7D"])
             plt.xticks(rotation=45)
-            plt.title(f"Boxplot de {var_box} por clase")
+            plt.title(f"Boxplot de {var_box} por clase (discourse_effectiveness)")
             st.pyplot(plt.gcf())
             plt.clf()
 
@@ -174,13 +180,13 @@ def render():
             else:
                 corr = corr_df.corr()
                 plt.figure(figsize=(6, 4))
-                sns.heatmap(corr, annot=True, fmt=".2f", cmap="vlag", square=True)
+                sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", square=True)
                 plt.title("Matriz de correlación (features textuales)")
                 st.pyplot(plt.gcf())
                 plt.clf()
 
         # Nube de palabras
-        st.markdown("### Nube de palabras")
+        st.markdown("### Nube de palabras por clase")
         wc_col = st.selectbox("Clase para la nube de palabras", options=["Todas"] + unique_classes, index=0)
         if wc_col == "Todas":
             counters = df_filtered["token_counts"].tolist()
@@ -223,7 +229,7 @@ def render():
                     pos_counter[tag] += 1
             if pos_counter:
                 pos_df = pd.DataFrame(pos_counter.most_common(), columns=["POS", "count"])
-                fig = px.bar(pos_df, x="POS", y="count", text="count")
+                fig = px.bar(pos_df, x="POS", y="count", text="count", color_discrete_sequence=["#90A9B7"])
                 fig.update_layout(height=350)
                 st.plotly_chart(fig, use_container_width=True)
             else:
@@ -246,7 +252,7 @@ def render():
             if total_vocab:
                 top_words = total_vocab.most_common(top_n)
                 vocab_df = pd.DataFrame(top_words, columns=["word", "count"])
-                fig = px.bar(vocab_df, x="count", y="word", orientation="h", text="count")
+                fig = px.bar(vocab_df, x="count", y="word", orientation="h", text="count", color_discrete_sequence=["#D2D8B3"])
                 fig.update_layout(height=350)
                 st.plotly_chart(fig, use_container_width=True)
             else:
@@ -262,7 +268,7 @@ def render():
         bigrams = build_ngrams(counters_for_grams, n=2, top_k=bigram_top_n)
         if bigrams:
             big_df = pd.DataFrame(bigrams, columns=["bigram", "count"])
-            fig = px.bar(big_df, x="count", y="bigram", orientation="h", text="count")
+            fig = px.bar(big_df, x="count", y="bigram", orientation="h", text="count", color_discrete_sequence=["#D4AA7D"])
             fig.update_layout(height=350)
             st.plotly_chart(fig, use_container_width=True)
         else:
@@ -273,7 +279,7 @@ def render():
         trigrams = build_ngrams(counters_for_grams, n=3, top_k=trigram_top_n)
         if trigrams:
             tri_df = pd.DataFrame(trigrams, columns=["trigram", "count"])
-            fig = px.bar(tri_df, x="count", y="trigram", orientation="h", text="count")
+            fig = px.bar(tri_df, x="count", y="trigram", orientation="h", text="count", color_discrete_sequence=["#EFD09E"])
             fig.update_layout(height=350)
             st.plotly_chart(fig, use_container_width=True)
         else:
