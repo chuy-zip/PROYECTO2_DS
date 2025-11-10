@@ -52,5 +52,5 @@ pip install plotly
 ### Run the app 🚀
 
 ```
-python dashboard/dashboard.py
+streamlit run dashboard/dashboard.py
 ```
