@@ -1,4 +1,3 @@
-# model_comparison_layout_fixed.py
 """
 Página Streamlit: Comparación de Modelos — Curvas Precision-Recall interactivas por modelo.
 Se estandariza el mapeo de clases:
@@ -6,7 +5,6 @@ Se estandariza el mapeo de clases:
     1 -> Effective
     2 -> Adequate
 
-Se eliminó la tabla de mapeo (más discreto) y se removió el modelo CNN de los hardcoded.
 """
 
 import streamlit as st
@@ -16,6 +14,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.lines import Line2D
 
 st.set_page_config(page_title="Model Comparison - Fixed Layout", layout="wide")
 
@@ -126,54 +125,89 @@ def get_pr_curves_for_model(metrics_obj):
         curves.append((r, p, float(ap)))
     return curves
 
+
+
 def plot_pr_curves_for_models(models_metrics_map, selected_models):
     """
     Dibuja un gráfico con curvas PR para los modelos seleccionados.
-    Se usa el mapeo estándar CLASS_ID_TO_NAME para los nombres de clase (0,1,2).
+    - Color = modelo
+    - Estilo de línea = clase
+    - Se crean dos leyendas: una para modelos (colores) y otra para clases (estilos).
+    Se usa CLASS_ID_TO_NAME para los nombres de clase si está disponible.
     """
     sns.set_style("whitegrid")
-    # definimos el conjunto estándar de nombres (0,1,2). Si hay más clases, las nombramos genéricas.
-    max_standard = max(CLASS_ID_TO_NAME.keys()) + 1
+
+    # preparar nombres de clase usando el mapping global (si existe)
+    try:
+        max_standard = max(CLASS_ID_TO_NAME.keys()) + 1
+    except Exception:
+        max_standard = 3  # fallback
     class_names = [CLASS_ID_TO_NAME.get(i, f"Clase {i}") for i in range(max_standard)]
 
-    # Determinar cuántas clases graficar en base al máximo de curvas que tengan los modelos seleccionados
-    max_classes = 0
+    # Recopilar curvas por modelo
     per_model_curves = {}
+    max_classes = 0
     for m in selected_models:
-        curves = get_pr_curves_for_model(models_metrics_map.get(m, {}))
+        curves = get_pr_curves_for_model(models_metrics_map.get(m, {}))  # devuelve lista de (recall, precision, ap)
         per_model_curves[m] = curves
-        max_classes = max(max_classes, len(curves))
+        if curves is not None:
+            max_classes = max(max_classes, len(curves))
 
-    # Si hay más clases que el estándar, ampliar nombres genéricos
+    # Asegurar nombres suficientes para las clases
     if max_classes > len(class_names):
         for i in range(len(class_names), max_classes):
             class_names.append(f"Clase {i}")
 
-    # colores por clase (cíclico)
-    palette = ["#0b3b75", "#32b3b3", "#ff8c1a", "#6a4c93", "#2ca02c", "#d62728"]
-    fig, ax = plt.subplots(figsize=(10,8))
+    # Colores por modelo (usar colormap para escalar a N modelos)
+    cmap = plt.cm.get_cmap("tab10")
+    model_colors = {m: cmap(i % cmap.N) for i, m in enumerate(selected_models)}
 
-    # Por cada modelo y por cada clase, plotear su curva. Se etiqueta como "Modelo — Clase (AP = x.xx)"
-    for model in selected_models:
-        curves = per_model_curves.get(model, [])
-        for class_idx in range(len(curves)):
-            if class_idx >= len(class_names):
-                cls_name = f"Clase {class_idx}"
-            else:
-                # usar el mapeo estándar para índices 0,1,2
-                cls_name = class_names[class_idx]
-            r, p, ap = curves[class_idx]
-            label = f"{model} — {cls_name} (AP = {ap:.2f})"
-            ax.plot(r, p, label=label, linewidth=2.2, color=palette[class_idx % len(palette)], alpha=0.95)
+    # Estilos por clase (linestyles distintos)
+    linestyles = ["-", "--", "-.", ":", (0, (3, 1, 1)), (0, (5, 1))]  # expandible
+    # Si hay más clases que estilos, repetimos estilos con variación en alpha o grosor
+    while len(linestyles) < max_classes:
+        linestyles += linestyles  # duplicar si hace falta (raro)
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Dibujar curvas: color por modelo, linestyle por clase
+    for m_idx, model in enumerate(selected_models):
+        curves = per_model_curves.get(model, []) or []
+        color = model_colors[model]
+        for class_idx, triple in enumerate(curves):
+            r, p, ap = triple
+            cls_name = class_names[class_idx] if class_idx < len(class_names) else f"Clase {class_idx}"
+            style = linestyles[class_idx % len(linestyles)]
+            # etiqueta interna no añadida a la leyenda principal (usamos leyendas separadas)
+            ax.plot(r, p, linestyle=style, color=color, linewidth=2.2, alpha=0.95)
+
+            # Opcional: anotar AP cercano al extremo derecho de la curva (descomentar si se desea)
+            # try:
+            #     ax.text(r[-1] + 0.01, p[-1], f"{model}:{cls_name} ({ap:.2f})", color=color, fontsize=8, va="center")
+            # except Exception:
+            #     pass
 
     ax.set_xlim(0.0, 1.0)
     ax.set_ylim(0.0, 1.02)
     ax.set_xlabel("Recall", fontsize=12)
     ax.set_ylabel("Precision", fontsize=12)
-    ax.set_title("Curvas Precision-Recall por Clase (modelos seleccionados)", fontsize=14)
+    ax.set_title("Curvas Precision-Recall por Clase y Modelo", fontsize=14)
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.8)
-    ax.legend(loc="upper right", fontsize=9)
+
+    # Construir leyenda para modelos (colores)
+    model_proxies = [Line2D([0], [0], color=model_colors[m], lw=3) for m in selected_models]
+    legend_models = ax.legend(model_proxies, selected_models, title="Modelos (color)", loc="upper right", fontsize=9, title_fontsize=10)
+
+    # Construir leyenda para clases (linestyles)
+    # Tomamos como referencias las primeras max_classes entradas
+    class_proxies = [Line2D([0], [0], color="black", lw=2, linestyle=linestyles[i % len(linestyles)]) for i in range(max_classes)]
+    legend_classes = ax.legend(class_proxies, [class_names[i] for i in range(max_classes)], title="Clases (estilo)", loc="upper left", fontsize=9, title_fontsize=10)
+
+    # Añadir la leyenda de modelos como artista para que ambas aparezcan
+    ax.add_artist(legend_models)
+
     return fig
+
 
 # ---------------- Hardcoded metrics (sin CNN) ----------------
 HARDCODED_METRICS = {
